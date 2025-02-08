@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Remove Background (Jewelry & Small Objects)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/deeplab"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
         .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; }
@@ -57,31 +56,36 @@
                 return;
             }
 
-            const model = await deeplab.load({ base: "pascal" });
-
+            // Load BodyPix model (used for object segmentation)
+            const net = await bodyPix.load();
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
             canvas.width = img.width;
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
 
-            const segmentation = await model.segment(canvas);
+            const segmentation = await net.segmentPerson(canvas, {
+                internalResolution: "high",
+                segmentationThreshold: 0.7
+            });
 
-            const outputCanvasCtx = outputCanvas.getContext("2d");
+            const mask = bodyPix.toMask(segmentation);
+
+            const outputCtx = outputCanvas.getContext("2d");
             outputCanvas.width = img.width;
             outputCanvas.height = img.height;
-            outputCanvasCtx.drawImage(img, 0, 0);
+            outputCtx.drawImage(img, 0, 0);
 
-            const imageData = outputCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+            const imageData = outputCtx.getImageData(0, 0, canvas.width, canvas.height);
             const pixels = imageData.data;
 
             for (let i = 0; i < pixels.length; i += 4) {
-                if (segmentation.segmentationMap[i / 4] === 0) {
-                    pixels[i + 3] = 0; // Set transparency
+                if (mask.data[i] === 0) {
+                    pixels[i + 3] = 0; // Set transparency for background pixels
                 }
             }
 
-            outputCanvasCtx.putImageData(imageData, 0, 0);
+            outputCtx.putImageData(imageData, 0, 0);
             outputCanvas.classList.remove("hidden");
 
             // Enable download link
