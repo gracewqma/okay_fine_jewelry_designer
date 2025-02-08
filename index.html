@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Remove Background (Jewelry & Small Objects)</title>
-    <script src="https://cdn.jsdelivr.net/npm/rembg-js"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/deeplab"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
         .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; }
@@ -55,21 +57,35 @@
                 return;
             }
 
-            const canvas = outputCanvas;
+            const model = await deeplab.load({ base: "pascal" });
+
+            const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
             canvas.width = img.width;
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
 
-            const rembg = await Rembg.new();  // Load rembg.js
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const outputData = await rembg.remove(imageData);  // Process image
+            const segmentation = await model.segment(canvas);
 
-            ctx.putImageData(outputData, 0, 0);
+            const outputCanvasCtx = outputCanvas.getContext("2d");
+            outputCanvas.width = img.width;
+            outputCanvas.height = img.height;
+            outputCanvasCtx.drawImage(img, 0, 0);
+
+            const imageData = outputCanvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = imageData.data;
+
+            for (let i = 0; i < pixels.length; i += 4) {
+                if (segmentation.segmentationMap[i / 4] === 0) {
+                    pixels[i + 3] = 0; // Set transparency
+                }
+            }
+
+            outputCanvasCtx.putImageData(imageData, 0, 0);
             outputCanvas.classList.remove("hidden");
 
             // Enable download link
-            downloadLink.href = canvas.toDataURL();
+            downloadLink.href = outputCanvas.toDataURL();
             downloadLink.classList.remove("hidden");
             downloadLink.textContent = "Download Image";
         });
