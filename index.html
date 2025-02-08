@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Remove Background (Jewelry & Small Objects)</title>
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/brain.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/rembg-js"></script> 
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
         .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; }
-        canvas, img { max-width: 100%; margin-top: 10px; }
+        img, canvas { max-width: 100%; margin-top: 10px; }
         .hidden { display: none; }
     </style>
 </head>
@@ -56,30 +55,17 @@
                 return;
             }
 
-            // Load the ONNX U2-Net model
-            const session = await ort.InferenceSession.create("https://raw.githubusercontent.com/NathanUA/U-2-Net/master/saved_models/u2net/u2net.onnx");
-            const tensor = new ort.Tensor(new Float32Array(img.width * img.height * 3), [1, 3, img.height, img.width]);
-
-            const results = await session.run({ "input": tensor });
-            const mask = results.output.data;
-
-            // Draw image on canvas
             const canvas = outputCanvas;
             const ctx = canvas.getContext("2d");
             canvas.width = img.width;
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
 
-            // Remove background
+            const rembg = await Rembg.new();  // Load rembg.js
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const pixels = imageData.data;
+            const outputData = await rembg.remove(imageData);  // Process image
 
-            for (let i = 0; i < pixels.length; i += 4) {
-                const alpha = mask[i / 4] * 255;
-                pixels[i + 3] = alpha;
-            }
-
-            ctx.putImageData(imageData, 0, 0);
+            ctx.putImageData(outputData, 0, 0);
             outputCanvas.classList.remove("hidden");
 
             // Enable download link
